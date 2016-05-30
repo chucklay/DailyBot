@@ -1,12 +1,13 @@
 # Import statements
+from __future__ import print_function
 import smtplib
-import dailybotdata.py
+import dailybotdata
 import datetime
 import pyowm
 import time
+import re
 from email.mime.text import MIMEText
 
-from __future__ import print_function
 import httplib2
 import os
 
@@ -19,26 +20,39 @@ SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 
+try:
+    import argparse
+    flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
+except ImportError:
+    flags = None
+
+data = ''
 
 def sendMsg(msg):
+    global data
     strg = ''
     if(type(msg) is list):
         # This is a list of strings that must be sent. format and send.
-        for(item in msg):
+        for item in msg:
             strg = strg + item + '\n'
     else:
         # This is a simple string that can be sent as-is.
         strg = msg
 
     # Format for email and send.
-    mimeStr = MIMEText(strg)
-    mimeStr['Subject'] = ''
-    mimeStr['From'] = data['Sender']
-    mimeStr['To'] = data['Receiver']
+    SUBJECT = ''
+    FROM = data['Sender']
+    TO = data['Receiver']
+
+    print(strg)
 
     # Get email client
-    s = smtplib.SMTP('localhost')
-    s.sendmail(data['Sender'], [data['Receiver']], mimeStr.as_string())
+    s = smtplib.SMTP('smtp.gmail.com', 587)
+    s.ehlo()
+    s.starttls()
+    s.ehlo()
+    s.login(data['Sender'], data['Password'])
+    s.sendmail(data['Sender'], [data['Receiver']], strg)
     s.quit();
     return
 
@@ -46,6 +60,7 @@ def populateItinerary():
     # Gets daily events from google calendar.
     # First, authorize client. This is taken from Google's quickstart guide.
 
+    global data
     home_dir = os.path.expanduser('~')
     credential_dir = os.path.join(home_dir, '.credentials')
     if not os.path.exists(credential_dir):
@@ -75,56 +90,60 @@ def populateItinerary():
     if not events:
         return ['No upcoming events found.']
     for event in events:
-        eventStrs.append(event['summary']);
+        eventStrs.append(event['start'].get('dateTime', event['start'].get('date')) + " - " + event['summary']);
     return eventStrs;
 
 
 def populateWeather():
     # Populates data to be sent in the message;
     # First, get the weather:
-    try:
-        owm = pywom.OWM(data['OWMKey'])
-        fc = owm.daily_forecast(data['Location'], limit=1)
-        f = fc.get_forecast()
-        for(weather in f):
-            temp = weather.get_temperature('fahrenheit')
-            weath = weather.get_detailed_status()
-
-            msg = 'Good morning! Today\'s forecast calls for ' + weath +
-            ' with a high of ' + temp['temp_max'] + ' and a low of ' +
-            weath['temp_min'] + '.'
-
-            return msg;
-    except Exception as e:
-        print('Error getting weather:\n' + e)
-        return 'Good morning! I was unable to get the weather today.'
+    global data
+    msg = ''
+    owm = pyowm.OWM(data['OWMKey'])
+    fc = owm.daily_forecast(data['Location'], limit=1)
+    f = fc.get_forecast()
+    #print(f)
+    for weather in f:
+        temp = weather.get_temperature('fahrenheit')
+        weath = weather.get_detailed_status()
+        maxTmp = str(temp['max'])
+	minTmp = str(temp['min'])
+        msg = ('Good morning! Today\'s forecast calls for ' + weath +
+        	   ' with a high of ' + maxTmp + ' and a low of ' + minTmp + '.')
+    return msg
 
 def main():
-    data = dailyBotData.data
+    global data
+    data = dailybotdata.data
+    print(data)
+    print(type(data))
     wasSent = False                         # Checks if the program has executed
                                             # today. Resets between 1AM-3AM.
     while(True):
         # Main program execution loop.
-        if(!wasSent):
+        if(not wasSent):
             # Daily itinerary not sent. Get the current time
             # and check if now is an appropreate time to send.
             currentTime = datetime.datetime.now()
-            if(currentTime.hour > 5 && currentTime.hour < 6):
+            print(currentTime.hour)
+            if(currentTime.hour>5 and currentTime.hour<24):
                 weather = populateWeather()
-                sendMsg(weather)
-                itinerary = populateItinerary()
-                sendMsg(itinerary);
+                #itinerary = populateItinerary()
+                #sendMsg(itinerary)
+		sendMsg(weather)
                 wasSent = True
             else:
                 # Not a good time. Sleep for 30 minutes.
+		print('No data sent, but now is not the time. Sleeping...')
                 time.sleep(60*30)
         else:
             # Message has been sent. Check to see if the current time is
             # between 1AM-3AM.
             currentTime = datetime.datetime.now()
-            if(currentTime.hour > 1 && currentTime < 3):
+            if(currentTime.hour>0 and currentTime.hour<4):
                 wasSent = False
             else:
+                print('Data has been sent today. Sleeping...')
                 time.sleep(60*60)
 
 
