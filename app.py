@@ -20,6 +20,28 @@ CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 
 
+def sendMsg(msg):
+    strg = ''
+    if(type(msg) is list):
+        # This is a list of strings that must be sent. format and send.
+        for(item in msg):
+            strg = strg + item + '\n'
+    else:
+        # This is a simple string that can be sent as-is.
+        strg = msg
+
+    # Format for email and send.
+    mimeStr = MIMEText(strg)
+    mimeStr['Subject'] = ''
+    mimeStr['From'] = data['Sender']
+    mimeStr['To'] = data['Receiver']
+
+    # Get email client
+    s = smtplib.SMTP('localhost')
+    s.sendmail(data['Sender'], [data['Receiver']], mimeStr.as_string())
+    s.quit();
+    return
+
 def populateItinerary():
     # Gets daily events from google calendar.
     # First, authorize client. This is taken from Google's quickstart guide.
@@ -62,7 +84,7 @@ def populateWeather():
     # First, get the weather:
     try:
         owm = pywom.OWM(data['OWMKey'])
-        fc = owm.daily_forecast(data['location'], limit=1)
+        fc = owm.daily_forecast(data['Location'], limit=1)
         f = fc.get_forecast()
         for(weather in f):
             temp = weather.get_temperature('fahrenheit')
@@ -91,6 +113,7 @@ def main():
                 weather = populateWeather()
                 sendMsg(weather)
                 itinerary = populateItinerary()
+                sendMsg(itinerary);
                 wasSent = True
             else:
                 # Not a good time. Sleep for 30 minutes.
