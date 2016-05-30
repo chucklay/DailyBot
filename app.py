@@ -126,7 +126,7 @@ def main():
             # and check if now is an appropreate time to send.
             currentTime = datetime.datetime.now()
             print(currentTime.hour)
-            if(currentTime.hour>5 and currentTime.hour<24):
+            if(currentTime.hour>5 and currentTime.hour<8):
                 weather = populateWeather()
                 #itinerary = populateItinerary()
                 #sendMsg(itinerary)
