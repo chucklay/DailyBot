@@ -33,6 +33,7 @@ def sendMsg(msg):
     strg = ''
     if(type(msg) is list):
         # This is a list of strings that must be sent. format and send.
+        strg = '\n'
         for item in msg:
             strg = strg + item + '\n'
     else:
@@ -128,9 +129,9 @@ def main():
             print(currentTime.hour)
             if(currentTime.hour>5 and currentTime.hour<8):
                 weather = populateWeather()
-                #itinerary = populateItinerary()
-                #sendMsg(itinerary)
-		sendMsg(weather)
+                itinerary = populateItinerary()
+                sendMsg(weather)
+                sendMsg(itinerary)
                 wasSent = True
             else:
                 # Not a good time. Sleep for 30 minutes.
