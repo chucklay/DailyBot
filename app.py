@@ -2,7 +2,7 @@
 from __future__ import print_function
 import smtplib
 import dailybotdata
-import datetime
+from datetime import datetime, timedelta
 import pyowm
 import time
 import re
@@ -16,6 +16,7 @@ import oauth2client
 from oauth2client import client
 from oauth2client import tools
 
+DEBUG = False
 SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Google Calendar API Python Quickstart'
@@ -45,16 +46,18 @@ def sendMsg(msg):
     FROM = data['Sender']
     TO = data['Receiver']
 
-    print(strg)
+    if(DEBUG):
+        print(strg)
 
-    # Get email client
-    s = smtplib.SMTP('smtp.gmail.com', 587)
-    s.ehlo()
-    s.starttls()
-    s.ehlo()
-    s.login(data['Sender'], data['Password'])
-    s.sendmail(data['Sender'], [data['Receiver']], strg)
-    s.quit();
+    if(not DEBUG):
+        # Get email client
+        s = smtplib.SMTP('smtp.gmail.com', 587)
+        s.ehlo()
+        s.starttls()
+        s.ehlo()
+        s.login(data['Sender'], data['Password'])
+        s.sendmail(data['Sender'], [data['Receiver']], strg)
+        s.quit();
     return
 
 def populateItinerary():
@@ -80,10 +83,11 @@ def populateItinerary():
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('calendar', 'v3', http=http)
 
-    now = datetime.datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+    now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+    then = (datetime.utcnow() + timedelta(days=3)).isoformat() + 'Z'
     # Getting the upcoming 5 events
     eventsResult = service.events().list(
-        calendarId='primary', timeMin=now, maxResults=5, singleEvents=True,
+        calendarId='primary', timeMin=now, timeMax=then, maxResults=5, singleEvents=True,
         orderBy='startTime').execute()
     events = eventsResult.get('items', [])
     eventStrs = ['You have the following events coming up:']
@@ -91,7 +95,10 @@ def populateItinerary():
     if not events:
         return ['No upcoming events found.']
     for event in events:
-        eventStrs.append(event['start'].get('dateTime', event['start'].get('date')) + " - " + event['summary']);
+        eventTime = event['start']['dateTime']
+        eventTime = datetime.strptime(eventTime, "%Y-%m-%dT%H:%M:%S-04:00")
+        eventStrs.append(eventTime.date().strftime("%m/%d/%Y") + " " + 
+                eventTime.time().strftime( "%I:%M %p") + " - " + event['summary']);
     return eventStrs;
 
 
@@ -107,6 +114,8 @@ def populateWeather():
     for weather in f:
         temp = weather.get_temperature('fahrenheit')
         weath = weather.get_detailed_status()
+        if(DEBUG):
+            print(temp)
         maxTmp = str(temp['max'])
 	minTmp = str(temp['min'])
         msg = ('Good morning! Today\'s forecast calls for ' + weath +
@@ -116,8 +125,9 @@ def populateWeather():
 def main():
     global data
     data = dailybotdata.data
-    print(data)
-    print(type(data))
+    if(DEBUG):
+        print(data)
+        print(type(data))
     wasSent = False                         # Checks if the program has executed
                                             # today. Resets between 1AM-3AM.
     while(True):
@@ -125,8 +135,8 @@ def main():
         if(not wasSent):
             # Daily itinerary not sent. Get the current time
             # and check if now is an appropreate time to send.
-            currentTime = datetime.datetime.now()
-            print(currentTime.hour)
+            currentTime = datetime.now()
+            # print(currentTime.hour)
             if(currentTime.hour>5 and currentTime.hour<8):
                 weather = populateWeather()
                 itinerary = populateItinerary()
@@ -140,7 +150,7 @@ def main():
         else:
             # Message has been sent. Check to see if the current time is
             # between 1AM-3AM.
-            currentTime = datetime.datetime.now()
+            currentTime = datetime.now()
             if(currentTime.hour>0 and currentTime.hour<4):
                 wasSent = False
             else:
