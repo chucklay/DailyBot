@@ -16,6 +16,9 @@ import oauth2client
 from oauth2client import client
 from oauth2client import tools
 
+# Firebase imports
+from pyfcm import FCMNotification
+
 DEBUG = False
 SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
 CLIENT_SECRET_FILE = 'client_secret.json'
@@ -59,6 +62,15 @@ def sendMsg(msg):
         s.sendmail(data['Sender'], [data['Receiver']], strg)
         s.quit();
     return
+
+# This sends the given message to a yet-to-be built app
+# via Firebase Cloud Messaging services (push notification).
+def sendFCM(msg):
+    push_service = FCMNotification(api_key=data['fcm_key'])
+    registration_id = data['fcm_registration_id']
+    message_title = 'DailyBot'
+    result = push_service.notify_single_device(registration_id=registration_id, message_title=message_title, message_body=msg)
+    print result
 
 def populateItinerary():
     # Gets daily events from google calendar.
